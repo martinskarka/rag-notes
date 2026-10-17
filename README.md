@@ -63,4 +63,4 @@ Your mission is to help people orient themselves in the age of AI ...
 
 ---
 
-Built by **Martin Škárka** as a hands-on learning project (2026).
+Built by **Martin Škarka** as a hands-on learning project (2026).
