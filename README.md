@@ -60,3 +60,7 @@ answer grounded in your notes, with the source file cited.
 Your mission is to help people orient themselves in the age of AI ...
 (Source: moje-vize.md)
 ```
+
+---
+
+Built by **Martin Škárka** as a hands-on learning project (2026).

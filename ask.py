@@ -27,6 +27,10 @@ CHAT_MODEL = "gpt-4o-mini"                   # levný a chytrý na odpovídání
 INDEX_FILE = Path("index.json")
 TOP_K = 3                                    # kolik nejlepších kousků použít
 
+# Práh: když je i nejlepší shoda pod touhle hranicí, odpověď v poznámkách
+# nejspíš není → rovnou řekneme "nevím" a ušetříme volání modelu.
+SIMILARITY_THRESHOLD = 0.45
+
 
 def embed_query(text: str) -> np.ndarray:
     """Převede otázku na embedding (jako numpy pole kvůli výpočtu podobnosti)."""
@@ -98,6 +102,17 @@ def main() -> None:
         print(f"  [{c['score']:.2f}] {c['source']}: {c['text'][:70]}...")
 
     print("\n--- Odpověď ---")
+
+    # PRÁH: když je i nejlepší kousek málo podobný, odpověď v poznámkách není.
+    best_score = chunks[0]["score"]
+    if best_score < SIMILARITY_THRESHOLD:
+        print(
+            "Na tohle nemám ve svých poznámkách dost relevantní informace, "
+            "tak si radši nic nevymýšlím."
+        )
+        print(f"(nejlepší shoda byla jen {best_score:.2f}, práh je {SIMILARITY_THRESHOLD})")
+        return  # model vůbec nevoláme → šetříme peníze i čas
+
     print(answer(question, chunks))
 
 
