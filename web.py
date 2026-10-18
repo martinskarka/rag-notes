@@ -8,9 +8,19 @@ Spuštění:  ./.venv/bin/streamlit run web.py
 """
 
 import json
+import os
 from pathlib import Path
 
 import streamlit as st
+
+# V cloudu (Streamlit Community Cloud) je API klíč uložený v "Secrets".
+# Načteme ho do prostředí JEŠTĚ PŘED importem ask.py (ask.py si při importu
+# vytváří OpenAI klienta, takže klíč musí být nastavený dřív).
+try:
+    if "OPENAI_API_KEY" in st.secrets:
+        os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass  # lokálně žádné secrets nejsou → klíč se vezme z .env (řeší ask.py)
 
 # Použijeme stejnou logiku jako ask.py — neopakujeme kód.
 from ask import retrieve, answer, SIMILARITY_THRESHOLD

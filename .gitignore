@@ -6,9 +6,6 @@
 __pycache__/
 *.pyc
 
-# Uložené embeddingy (vygenerují se znovu)
-index.json
-
 # macOS
 .DS_Store
 
