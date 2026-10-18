@@ -11,3 +11,6 @@ index.json
 
 # macOS
 .DS_Store
+
+# Pomocné nastavení editoru/nástrojů
+.claude/
