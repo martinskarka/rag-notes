@@ -3,6 +3,7 @@ WEB — chatovací okno pro RAG appku v prohlížeči (přes Streamlit).
 
 Dělá to samé co ask.py, jen hezky v prohlížeči: napíšeš otázku do políčka
 a appka odpoví z tvých poznámek (nebo řekne "nevím", když to tam není).
+Pod každou odpovědí je rozklikávací sekce "📄 Zdroje" s přesnými pasážemi.
 
 Spuštění:  ./.venv/bin/streamlit run web.py
 """
@@ -39,6 +40,14 @@ def load_index() -> list[dict]:
     return json.loads(INDEX_FILE.read_text(encoding="utf-8"))
 
 
+def show_sources(sources: list[dict]) -> None:
+    """Vykreslí rozklikávací sekci se zdroji (odkud odpověď pochází)."""
+    with st.expander("📄 Zdroje — odkud to je"):
+        for s in sources:
+            st.markdown(f"**{s['source']}** · shoda {s['score']:.2f}")
+            st.caption(s["text"])
+
+
 if not INDEX_FILE.exists():
     st.error("Index neexistuje. Nejdřív spusť v terminálu:  ./.venv/bin/python ingest.py")
     st.stop()
@@ -49,10 +58,12 @@ index = load_index()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Vykreslíme dosavadní zprávy.
+# Vykreslíme dosavadní zprávy (včetně zdrojů, pokud u zprávy jsou).
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+        if msg.get("sources"):
+            show_sources(msg["sources"])
 
 # --- Políčko na otázku dole ---
 question = st.chat_input("Zeptej se svých poznámek…")
@@ -75,10 +86,20 @@ if question:
                     "tak si radši nic nevymýšlím.\n\n"
                     f"*(nejlepší shoda jen {best_score:.2f}, práh je {SIMILARITY_THRESHOLD})*"
                 )
+                sources = None  # nic relevantního → žádné zdroje neukazujeme
             else:
                 reply = answer(question, chunks)
+                # Uložíme si jen to, co se ukáže ve zdrojích (bez embeddingů).
+                sources = [
+                    {"source": c["source"], "score": c["score"], "text": c["text"]}
+                    for c in chunks
+                ]
 
         st.markdown(reply)
+        if sources:
+            show_sources(sources)
 
-    # Uložíme odpověď do historie.
-    st.session_state.messages.append({"role": "assistant", "content": reply})
+    # Uložíme odpověď (i se zdroji) do historie.
+    st.session_state.messages.append(
+        {"role": "assistant", "content": reply, "sources": sources}
+    )
