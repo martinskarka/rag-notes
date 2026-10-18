@@ -91,6 +91,19 @@ index = load_index()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# --- Postranní panel (sidebar): info o appce + tlačítko na vymazání chatu ---
+with st.sidebar:
+    st.header("ℹ️ O této appce")
+    st.markdown(
+        "Odpovídám na otázky **jen z vlastních poznámek** a vždy ukážu zdroj. "
+        "Postaveno v Pythonu (RAG + OpenAI)."
+    )
+    st.markdown("[📂 Kód na GitHubu](https://github.com/martinskarka/rag-notes)")
+    st.divider()
+    if st.button("🗑️ Vymazat konverzaci"):
+        st.session_state.messages = []
+        st.rerun()
+
 # Vykreslíme dosavadní zprávy (včetně zdrojů, pokud u zprávy jsou).
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
