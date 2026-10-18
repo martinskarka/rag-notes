@@ -2,7 +2,7 @@
 WEB — chatovací okno pro RAG appku v prohlížeči (přes Streamlit).
 
 Dělá to samé co ask.py, jen hezky v prohlížeči: napíšeš otázku do políčka
-a appka odpoví z tvých poznámek (nebo řekne "nevím", když to tam není).
+(nebo klikneš na ukázkovou otázku) a appka odpoví z tvých poznámek.
 Pod každou odpovědí je rozklikávací sekce "📄 Zdroje" s přesnými pasážemi.
 
 Spuštění:  ./.venv/bin/streamlit run web.py
@@ -28,6 +28,13 @@ from ask import retrieve, answer, SIMILARITY_THRESHOLD
 
 INDEX_FILE = Path("index.json")
 
+# Ukázkové otázky, co se nabídnou, když appku někdo otevře poprvé.
+EXAMPLE_QUESTIONS = [
+    "Komu chci pomáhat?",
+    "Jaký je můj dlouhodobý cíl?",
+    "Kdo mě inspiruje?",
+]
+
 # --- Nastavení stránky (název v záložce + nadpis) ---
 st.set_page_config(page_title="Chat s mými poznámkami", page_icon="🧠")
 st.title("🧠 Chat s mými poznámkami")
@@ -48,6 +55,32 @@ def show_sources(sources: list[dict]) -> None:
             st.caption(s["text"])
 
 
+def handle_question(question: str) -> None:
+    """Zpracuje otázku: najde kousky, rozhodne o odpovědi a uloží do historie."""
+    st.session_state.messages.append({"role": "user", "content": question})
+
+    chunks = retrieve(question, index)
+    best_score = chunks[0]["score"]
+
+    if best_score < SIMILARITY_THRESHOLD:
+        reply = (
+            "Na tohle nemám ve svých poznámkách dost relevantní informace, "
+            "tak si radši nic nevymýšlím.\n\n"
+            f"*(nejlepší shoda jen {best_score:.2f}, práh je {SIMILARITY_THRESHOLD})*"
+        )
+        sources = None
+    else:
+        reply = answer(question, chunks)
+        sources = [
+            {"source": c["source"], "score": c["score"], "text": c["text"]}
+            for c in chunks
+        ]
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": reply, "sources": sources}
+    )
+
+
 if not INDEX_FILE.exists():
     st.error("Index neexistuje. Nejdřív spusť v terminálu:  ./.venv/bin/python ingest.py")
     st.stop()
@@ -65,41 +98,19 @@ for msg in st.session_state.messages:
         if msg.get("sources"):
             show_sources(msg["sources"])
 
-# --- Políčko na otázku dole ---
-question = st.chat_input("Zeptej se svých poznámek…")
+# Otázku můžeme dostat dvěma způsoby: z políčka, nebo z ukázkového tlačítka.
+pending_question = st.chat_input("Zeptej se svých poznámek…")
 
-if question:
-    # 1) Ukážeme otázku uživatele.
-    st.session_state.messages.append({"role": "user", "content": question})
-    with st.chat_message("user"):
-        st.markdown(question)
+# Ukázková tlačítka ukážeme jen na začátku (když ještě není žádná zpráva).
+if not st.session_state.messages:
+    st.markdown("**Zkus třeba:**")
+    columns = st.columns(len(EXAMPLE_QUESTIONS))
+    for column, example in zip(columns, EXAMPLE_QUESTIONS):
+        if column.button(example):
+            pending_question = example
 
-    # 2) Spočítáme a ukážeme odpověď.
-    with st.chat_message("assistant"):
-        with st.spinner("Hledám v poznámkách…"):
-            chunks = retrieve(question, index)
-            best_score = chunks[0]["score"]
-
-            if best_score < SIMILARITY_THRESHOLD:
-                reply = (
-                    "Na tohle nemám ve svých poznámkách dost relevantní informace, "
-                    "tak si radši nic nevymýšlím.\n\n"
-                    f"*(nejlepší shoda jen {best_score:.2f}, práh je {SIMILARITY_THRESHOLD})*"
-                )
-                sources = None  # nic relevantního → žádné zdroje neukazujeme
-            else:
-                reply = answer(question, chunks)
-                # Uložíme si jen to, co se ukáže ve zdrojích (bez embeddingů).
-                sources = [
-                    {"source": c["source"], "score": c["score"], "text": c["text"]}
-                    for c in chunks
-                ]
-
-        st.markdown(reply)
-        if sources:
-            show_sources(sources)
-
-    # Uložíme odpověď (i se zdroji) do historie.
-    st.session_state.messages.append(
-        {"role": "assistant", "content": reply, "sources": sources}
-    )
+# Pokud přišla otázka (z políčka nebo z tlačítka), zpracujeme ji.
+if pending_question:
+    with st.spinner("Hledám v poznámkách…"):
+        handle_question(pending_question)
+    st.rerun()  # překreslíme stránku, ať se nová zpráva hezky zobrazí v historii
