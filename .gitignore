@@ -1,5 +1,6 @@
-# Tajné klíče - NIKDY necommitovat!
+# Tajné klíče a soukromé soubory - NIKDY necommitovat!
 .env
+voice.md
 
 # Python
 .venv/
