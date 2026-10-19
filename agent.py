@@ -26,6 +26,7 @@ load_dotenv()
 client = OpenAI()
 CHAT_MODEL = "gpt-4o-mini"
 INDEX = json.loads(Path("index.json").read_text(encoding="utf-8"))
+NOTES_DIR = Path("notes")
 
 
 # ========== 1) NÁSTROJE (obyčejné funkce, které agent může zavolat) ==========
@@ -69,11 +70,25 @@ def calculator(expression: str) -> str:
     return str(_eval_node(tree.body))
 
 
+def save_note(text: str) -> str:
+    """AKCE: uloží poznámku uživatele na konec souboru notes/zapisky.md.
+
+    Tohle je nástroj, který NĚCO UDĚLÁ (zapíše do souboru), ne jen přečte.
+    """
+    NOTES_DIR.mkdir(exist_ok=True)
+    stamp = datetime.now().strftime("%d.%m.%Y %H:%M")
+    path = NOTES_DIR / "zapisky.md"
+    with path.open("a", encoding="utf-8") as file:
+        file.write(f"- [{stamp}] {text}\n")
+    return f"Uloženo do notes/zapisky.md: {text}"
+
+
 # Mapa jméno → funkce, ať nástroj umíme zavolat podle jména, které vrátí model.
 AVAILABLE_TOOLS = {
     "search_notes": search_notes,
     "current_datetime": current_datetime,
     "calculator": calculator,
+    "save_note": save_note,
 }
 
 
@@ -124,6 +139,20 @@ TOOLS_SPEC = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_note",
+            "description": "Uloží poznámku/myšlenku uživatele do jeho poznámek. Použij, když řekne 'zapiš si', 'poznač si', 'zapamatuj si' apod.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text poznámky k uložení"}
+                },
+                "required": ["text"],
+            },
+        },
+    },
 ]
 
 
@@ -136,7 +165,8 @@ def run_agent(question: str) -> str:
             "content": (
                 "Jsi užitečný český asistent. Pro výpočty, informace z poznámek "
                 "nebo aktuální čas VŽDY použij dostupné nástroje (nepočítej zpaměti). "
-                "Odpovídej česky."
+                "Když tě uživatel požádá, abys si něco zapsal nebo zapamatoval, ulož "
+                "to nástrojem save_note. Odpovídej česky."
             ),
         },
         {"role": "user", "content": question},
